@@ -30,17 +30,37 @@ class CalibrationActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityCalibrationBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        try {
+            Log.d(TAG, "onCreate started")
+            binding = ActivityCalibrationBinding.inflate(layoutInflater)
+            setContentView(binding.root)
 
-        configManager = ConfigManager(this)
-        calibrationManager = CalibrationManager(this)
-        calibrator = CameraCalibrator(configManager)
+            Log.d(TAG, "Creating ConfigManager")
+            configManager = ConfigManager(this)
 
-        cameraExecutor = Executors.newSingleThreadExecutor()
+            Log.d(TAG, "Creating CalibrationManager")
+            calibrationManager = CalibrationManager(this)
 
-        setupUI()
-        startCamera()
+            Log.d(TAG, "Creating CameraCalibrator")
+            calibrator = CameraCalibrator(configManager)
+
+            Log.d(TAG, "CameraCalibrator created successfully")
+
+            cameraExecutor = Executors.newSingleThreadExecutor()
+
+            setupUI()
+            Log.d(TAG, "Starting camera")
+            startCamera()
+            Log.d(TAG, "onCreate completed")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize CalibrationActivity", e)
+            Toast.makeText(this, "初期化エラー: ${e.message}", Toast.LENGTH_LONG).show()
+            finish()
+        } catch (e: Error) {
+            Log.e(TAG, "Fatal error in CalibrationActivity", e)
+            Toast.makeText(this, "致命的エラー: ${e.message}", Toast.LENGTH_LONG).show()
+            finish()
+        }
     }
 
     private fun setupUI() {

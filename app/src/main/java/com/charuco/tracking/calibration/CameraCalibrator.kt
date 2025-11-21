@@ -2,9 +2,10 @@ package com.charuco.tracking.calibration
 
 import com.charuco.tracking.utils.ConfigManager
 import org.opencv.aruco.Aruco
-import org.opencv.aruco.CharucoBoard
-import org.opencv.aruco.DetectorParameters
-import org.opencv.aruco.Dictionary
+import org.opencv.objdetect.CharucoBoard
+import org.opencv.objdetect.DetectorParameters
+import org.opencv.objdetect.Dictionary
+import org.opencv.objdetect.Objdetect
 import org.opencv.calib3d.Calib3d
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
@@ -28,13 +29,13 @@ class CameraCalibrator(private val configManager: ConfigManager) {
         // Setup ArUco dictionary
         val dictName = configManager.getDictionary()
         val dictId = when (dictName) {
-            "DICT_4X4_50" -> Aruco.DICT_4X4_50
-            "DICT_5X5_100" -> Aruco.DICT_5X5_100
-            "DICT_6X6_250" -> Aruco.DICT_6X6_250
-            "DICT_7X7_1000" -> Aruco.DICT_7X7_1000
-            else -> Aruco.DICT_5X5_100
+            "DICT_4X4_50" -> Objdetect.DICT_4X4_50
+            "DICT_5X5_100" -> Objdetect.DICT_5X5_100
+            "DICT_6X6_250" -> Objdetect.DICT_6X6_250
+            "DICT_7X7_1000" -> Objdetect.DICT_7X7_1000
+            else -> Objdetect.DICT_5X5_100
         }
-        dictionary = Aruco.getPredefinedDictionary(dictId)
+        dictionary = Objdetect.getPredefinedDictionary(dictId)
 
         // Create ChArUco board
         val squaresX = configManager.getSquaresX()
@@ -42,20 +43,19 @@ class CameraCalibrator(private val configManager: ConfigManager) {
         val squareLength = configManager.getSquareLength().toFloat()
         val markerLength = configManager.getMarkerLength().toFloat()
 
-        board = CharucoBoard.create(
-            squaresX,
-            squaresY,
+        board = CharucoBoard(
+            Size(squaresX.toDouble(), squaresY.toDouble()),
             squareLength,
             markerLength,
             dictionary
         )
 
         // Setup detector parameters
-        detectorParams = DetectorParameters.create().apply {
-            cornerRefinementMethod = Aruco.CORNER_REFINE_SUBPIX
-            cornerRefinementWinSize = 5
-            cornerRefinementMaxIterations = 30
-            cornerRefinementMinAccuracy = 0.01
+        detectorParams = DetectorParameters().apply {
+            set_cornerRefinementMethod(Objdetect.CORNER_REFINE_SUBPIX)
+            set_cornerRefinementWinSize(5)
+            set_cornerRefinementMaxIterations(30)
+            set_cornerRefinementMinAccuracy(0.01)
         }
     }
 
@@ -137,7 +137,7 @@ class CameraCalibrator(private val configManager: ConfigManager) {
             val objPoints = Mat()
             val imgPoints = Mat()
 
-            board.matchImagePoints(allCharucoCorners[i], allCharucoIds[i], objPoints, imgPoints)
+            board.matchImagePoints(listOf(allCharucoCorners[i]), allCharucoIds[i], objPoints, imgPoints)
 
             allObjectPoints.add(objPoints)
             allImagePoints.add(imgPoints)
@@ -207,7 +207,7 @@ class CameraCalibrator(private val configManager: ConfigManager) {
 
         if (!markerIds.empty() && markerCorners.isNotEmpty()) {
             // Draw detected markers
-            Aruco.drawDetectedMarkers(frame, markerCorners, markerIds)
+            Objdetect.drawDetectedMarkers(frame, markerCorners, markerIds)
 
             // Interpolate ChArUco corners
             val charucoCorners = Mat()
@@ -224,7 +224,7 @@ class CameraCalibrator(private val configManager: ConfigManager) {
 
             if (numInterpolated >= 4) {
                 // Draw ChArUco corners
-                Aruco.drawDetectedCornersCharuco(
+                Objdetect.drawDetectedCornersCharuco(
                     frame,
                     charucoCorners,
                     charucoIds,

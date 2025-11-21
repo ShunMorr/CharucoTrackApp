@@ -16,3 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "ChAruCo Tracking"
 include(":app")
+include(":opencv")
+project(":opencv").projectDir = file("opencv/sdk")

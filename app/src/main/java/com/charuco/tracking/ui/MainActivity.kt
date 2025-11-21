@@ -13,6 +13,7 @@ import com.charuco.tracking.databinding.ActivityMainBinding
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
 import org.opencv.android.OpenCVLoader
+import android.util.Log
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -21,17 +22,24 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val CAMERA_PERMISSION_REQUEST_CODE = 100
+        private const val TAG = "MainActivity"
+
+        init {
+            try {
+                System.loadLibrary("c++_shared")
+                System.loadLibrary("opencv_java4")
+                Log.d(TAG, "OpenCV library loaded successfully")
+            } catch (e: UnsatisfiedLinkError) {
+                Log.e(TAG, "Failed to load OpenCV library: ${e.message}")
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize OpenCV
-        if (!OpenCVLoader.initDebug()) {
-            Toast.makeText(this, "OpenCV initialization failed", Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
+        // OpenCV is already loaded via System.loadLibrary in companion object
+        Log.d(TAG, "OpenCV initialized successfully")
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)

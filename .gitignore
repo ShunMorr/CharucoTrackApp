@@ -1,0 +1,52 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+
+# Gradle files
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration file
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+.DS_Store
+
+# NDK
+obj/
+
+# IntelliJ
+*.hprof
+
+# Keystore files
+*.jks
+*.keystore
+keystore.properties
+
+# Log Files
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OpenCV SDK (large, should be downloaded separately)
+opencv/
