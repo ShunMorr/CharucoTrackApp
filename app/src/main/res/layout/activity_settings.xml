@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ChArUcoボード設定"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Dictionary -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="辞書タイプ" />
+
+        <Spinner
+            android:id="@+id/spinnerDictionary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Squares X -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="X方向マス数" />
+
+        <EditText
+            android:id="@+id/etSquaresX"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Squares Y -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Y方向マス数" />
+
+        <EditText
+            android:id="@+id/etSquaresY"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Square Length -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="マスのサイズ (メートル)" />
+
+        <EditText
+            android:id="@+id/etSquareLength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Marker Length -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="マーカーサイズ (メートル)" />
+
+        <EditText
+            android:id="@+id/etMarkerLength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Min Calibration Frames -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="最小キャリブレーションフレーム数" />
+
+        <EditText
+            android:id="@+id/etMinFrames"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Save Path -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="保存先フォルダ"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvCurrentPath"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="現在のパス: (デフォルト)"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnSelectFolder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="フォルダを選択"
+            android:layout_marginBottom="24dp" />
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="保存" />
+
+    </LinearLayout>
+</ScrollView>
