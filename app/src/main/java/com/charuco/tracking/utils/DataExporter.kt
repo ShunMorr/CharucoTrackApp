@@ -3,6 +3,8 @@ package com.charuco.tracking.utils
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.io.FileWriter
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -50,6 +52,33 @@ class DataExporter {
         FileWriter(file).use { writer ->
             yaml.dump(data, writer)
         }
+    }
+
+    /**
+     * Export spot measurement to OutputStream
+     */
+    fun exportSpotMeasurement(measurement: SpotMeasurement, outputStream: OutputStream) {
+        val data = buildSpotMeasurementData(measurement)
+        OutputStreamWriter(outputStream).use { writer ->
+            yaml.dump(data, writer)
+        }
+    }
+
+    private fun buildSpotMeasurementData(measurement: SpotMeasurement): Map<String, Any> {
+        val data = mutableMapOf<String, Any>()
+        data["metadata"] = mapOf(
+            "timestamp" to dateFormat.format(Date()),
+            "measurement_type" to "spot"
+        )
+        val pose = measurement.pose
+        data["pose"] = mapOf(
+            "translation" to mapOf("x" to pose.translation.x, "y" to pose.translation.y, "z" to pose.translation.z),
+            "rotation" to mapOf("roll" to pose.rotation.roll, "pitch" to pose.rotation.pitch, "yaw" to pose.rotation.yaw),
+            "quality" to pose.quality,
+            "num_samples" to measurement.numSamples,
+            "std_dev" to mapOf("x_mm" to measurement.stdDev.xMm, "y_mm" to measurement.stdDev.yMm, "z_mm" to measurement.stdDev.zMm)
+        )
+        return data
     }
 
     /**
@@ -101,6 +130,41 @@ class DataExporter {
         FileWriter(file).use { writer ->
             yaml.dump(data, writer)
         }
+    }
+
+    /**
+     * Export trajectory to OutputStream
+     */
+    fun exportTrajectory(trajectory: TrajectoryData, outputStream: OutputStream) {
+        val data = buildTrajectoryData(trajectory)
+        OutputStreamWriter(outputStream).use { writer ->
+            yaml.dump(data, writer)
+        }
+    }
+
+    private fun buildTrajectoryData(trajectory: TrajectoryData): Map<String, Any> {
+        val data = mutableMapOf<String, Any>()
+        data["metadata"] = mapOf(
+            "num_poses" to trajectory.numPoses,
+            "duration_sec" to trajectory.durationSec,
+            "timestamp" to dateFormat.format(Date())
+        )
+        data["trajectory"] = trajectory.poses.map { pose ->
+            mapOf(
+                "timestamp" to pose.timestamp,
+                "translation" to mapOf("x" to pose.translation.x, "y" to pose.translation.y, "z" to pose.translation.z),
+                "rotation" to mapOf("roll" to pose.rotation.roll, "pitch" to pose.rotation.pitch, "yaw" to pose.rotation.yaw),
+                "quality" to pose.quality,
+                "num_corners" to pose.numCorners
+            )
+        }
+        val disp = trajectory.totalDisplacement
+        data["total_displacement"] = mapOf(
+            "displacement" to mapOf("x_mm" to disp.xMm, "y_mm" to disp.yMm, "z_mm" to disp.zMm, "yaw_deg" to disp.yawDeg),
+            "distance_2d_mm" to disp.distance2DMm,
+            "distance_3d_mm" to disp.distance3DMm
+        )
+        return data
     }
 
     /**

@@ -13,6 +13,7 @@ import com.charuco.tracking.calibration.CameraCalibrator
 import com.charuco.tracking.databinding.ActivityCalibrationBinding
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
+import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import java.util.concurrent.ExecutorService
@@ -27,6 +28,17 @@ class CalibrationActivity : AppCompatActivity() {
 
     private var imageAnalysis: ImageAnalysis? = null
     private var camera: Camera? = null
+    @Volatile
+    private var captureNextFrame = false
+
+    companion object {
+        private const val TAG = "CalibrationActivity"
+        init {
+            if (!OpenCVLoader.initLocal()) {
+                Log.e(TAG, "OpenCV initialization failed")
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,7 +79,7 @@ class CalibrationActivity : AppCompatActivity() {
         updateFrameCount()
 
         binding.btnCaptureFrame.setOnClickListener {
-            // Frame capture will be triggered
+            captureNextFrame = true
             Toast.makeText(this, "フレームをキャプチャ中...", Toast.LENGTH_SHORT).show()
         }
 
@@ -124,18 +136,10 @@ class CalibrationActivity : AppCompatActivity() {
                 val mat = Mat()
                 Utils.bitmapToMat(bitmap, mat)
 
-                // Draw detection on UI thread
-                runOnUiThread {
-                    calibrator.drawDetection(mat)
-                }
-
-                // Auto-capture frames if button is held
-                val currentTime = System.currentTimeMillis()
-                if (binding.btnCaptureFrame.isPressed &&
-                    currentTime - lastCaptureTime > captureInterval
-                ) {
+                // Capture frame if requested (before drawing)
+                if (captureNextFrame) {
+                    captureNextFrame = false
                     if (calibrator.captureFrame(mat)) {
-                        lastCaptureTime = currentTime
                         runOnUiThread {
                             updateFrameCount()
                             Toast.makeText(
@@ -144,8 +148,19 @@ class CalibrationActivity : AppCompatActivity() {
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
+                    } else {
+                        runOnUiThread {
+                            Toast.makeText(
+                                this@CalibrationActivity,
+                                "ChArUcoボードが検出できません",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 }
+
+                // Draw detection (after capture)
+                calibrator.drawDetection(mat)
 
                 mat.release()
             }
@@ -204,11 +219,11 @@ class CalibrationActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        cameraExecutor.shutdown()
-        calibrator.clear()
-    }
-
-    companion object {
-        private const val TAG = "CalibrationActivity"
+        if (::cameraExecutor.isInitialized) {
+            cameraExecutor.shutdown()
+        }
+        if (::calibrator.isInitialized) {
+            calibrator.clear()
+        }
     }
 }

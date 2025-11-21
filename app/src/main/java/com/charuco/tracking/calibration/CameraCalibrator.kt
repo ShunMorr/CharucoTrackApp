@@ -1,8 +1,10 @@
 package com.charuco.tracking.calibration
 
 import com.charuco.tracking.utils.ConfigManager
-import org.opencv.aruco.Aruco
+import org.opencv.objdetect.ArucoDetector
 import org.opencv.objdetect.CharucoBoard
+import org.opencv.objdetect.CharucoDetector
+import org.opencv.objdetect.CharucoParameters
 import org.opencv.objdetect.DetectorParameters
 import org.opencv.objdetect.Dictionary
 import org.opencv.objdetect.Objdetect
@@ -16,7 +18,8 @@ import org.opencv.imgproc.Imgproc
 class CameraCalibrator(private val configManager: ConfigManager) {
     private val dictionary: Dictionary
     private val board: CharucoBoard
-    private val detectorParams: DetectorParameters
+    private val arucoDetector: ArucoDetector
+    private val charucoDetector: CharucoDetector
 
     private val allCharucoCorners = mutableListOf<Mat>()
     private val allCharucoIds = mutableListOf<Mat>()
@@ -51,56 +54,41 @@ class CameraCalibrator(private val configManager: ConfigManager) {
         )
 
         // Setup detector parameters
-        detectorParams = DetectorParameters().apply {
-            set_cornerRefinementMethod(Objdetect.CORNER_REFINE_SUBPIX)
-            set_cornerRefinementWinSize(5)
-            set_cornerRefinementMaxIterations(30)
-            set_cornerRefinementMinAccuracy(0.01)
-        }
+        val detectorParams = DetectorParameters()
+        detectorParams.set_cornerRefinementMethod(Objdetect.CORNER_REFINE_SUBPIX)
+
+        // Create detectors using new API
+        arucoDetector = ArucoDetector(dictionary, detectorParams)
+        charucoDetector = CharucoDetector(board, CharucoParameters(), detectorParams)
     }
 
     /**
      * Capture a calibration frame
      */
     fun captureFrame(frame: Mat): Boolean {
+        if (frame.empty()) return false
+
         if (imageSize == null) {
             imageSize = frame.size()
         }
 
         val gray = Mat()
-        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_BGR2GRAY)
+        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_RGBA2GRAY)
 
-        // Detect ArUco markers
-        val markerCorners = mutableListOf<Mat>()
-        val markerIds = Mat()
-        val rejectedCandidates = mutableListOf<Mat>()
-
-        Aruco.detectMarkers(gray, dictionary, markerCorners, markerIds, detectorParams, rejectedCandidates)
-
-        if (markerIds.empty() || markerCorners.isEmpty()) {
-            gray.release()
-            markerIds.release()
-            return false
-        }
-
-        // Interpolate ChArUco corners
+        // Detect ChArUco board using new API
         val charucoCorners = Mat()
         val charucoIds = Mat()
+        val markerCorners = mutableListOf<Mat>()
+        val markerIds = Mat()
 
-        val numInterpolated = Aruco.interpolateCornersCharuco(
-            markerCorners,
-            markerIds,
-            gray,
-            board,
-            charucoCorners,
-            charucoIds
-        )
+        charucoDetector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds)
+
 
         gray.release()
         markerCorners.forEach { it.release() }
         markerIds.release()
 
-        if (numInterpolated < 4) {
+        if (charucoCorners.rows() < 4) {
             charucoCorners.release()
             charucoIds.release()
             return false
@@ -132,16 +120,31 @@ class CameraCalibrator(private val configManager: ConfigManager) {
 
         val imgSize = imageSize ?: return null
 
+        // Get all charuco corner 3D positions from board
+        val boardCorners = Mat()
+        board.chessboardCorners.copyTo(boardCorners)
+
         // Prepare object and image points for calibration
         for (i in allCharucoCorners.indices) {
-            val objPoints = Mat()
-            val imgPoints = Mat()
+            val corners = allCharucoCorners[i]
+            val ids = allCharucoIds[i]
 
-            board.matchImagePoints(listOf(allCharucoCorners[i]), allCharucoIds[i], objPoints, imgPoints)
+            val objPoints = Mat(corners.rows(), 1, CvType.CV_32FC3)
+            val imgPoints = Mat()
+            corners.copyTo(imgPoints)
+
+            // Map each detected corner ID to its 3D position
+            for (j in 0 until ids.rows()) {
+                val id = ids.get(j, 0)[0].toInt()
+                val pt3d = boardCorners.get(id, 0)
+                objPoints.put(j, 0, pt3d[0], pt3d[1], pt3d[2])
+            }
 
             allObjectPoints.add(objPoints)
             allImagePoints.add(imgPoints)
         }
+
+        boardCorners.release()
 
         // Initialize camera matrix
         val cameraMatrix = Mat.eye(3, 3, CvType.CV_64F)
@@ -193,51 +196,49 @@ class CameraCalibrator(private val configManager: ConfigManager) {
      * Draw detection on frame for visualization
      */
     fun drawDetection(frame: Mat): Boolean {
-        val gray = Mat()
-        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_BGR2GRAY)
+        if (frame.empty()) return false
 
-        // Detect ArUco markers
+        val gray = Mat()
+        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_RGBA2GRAY)
+
+        // Convert to BGR for drawing (OpenCV expects 1 or 3 channels)
+        val bgr = Mat()
+        Imgproc.cvtColor(frame, bgr, Imgproc.COLOR_RGBA2BGR)
+
+        // Detect ChArUco board using new API
+        val charucoCorners = Mat()
+        val charucoIds = Mat()
         val markerCorners = mutableListOf<Mat>()
         val markerIds = Mat()
-        val rejectedCandidates = mutableListOf<Mat>()
 
-        Aruco.detectMarkers(gray, dictionary, markerCorners, markerIds, detectorParams, rejectedCandidates)
+        charucoDetector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds)
+
 
         var detected = false
 
         if (!markerIds.empty() && markerCorners.isNotEmpty()) {
-            // Draw detected markers
-            Objdetect.drawDetectedMarkers(frame, markerCorners, markerIds)
-
-            // Interpolate ChArUco corners
-            val charucoCorners = Mat()
-            val charucoIds = Mat()
-
-            val numInterpolated = Aruco.interpolateCornersCharuco(
-                markerCorners,
-                markerIds,
-                gray,
-                board,
-                charucoCorners,
-                charucoIds
-            )
-
-            if (numInterpolated >= 4) {
-                // Draw ChArUco corners
-                Objdetect.drawDetectedCornersCharuco(
-                    frame,
-                    charucoCorners,
-                    charucoIds,
-                    Scalar(0.0, 255.0, 0.0)
-                )
-                detected = true
-            }
-
-            charucoCorners.release()
-            charucoIds.release()
+            // Draw detected markers on BGR image
+            Objdetect.drawDetectedMarkers(bgr, markerCorners, markerIds)
         }
 
+        if (charucoCorners.rows() >= 4) {
+            // Draw ChArUco corners
+            Objdetect.drawDetectedCornersCharuco(
+                bgr,
+                charucoCorners,
+                charucoIds,
+                Scalar(0.0, 255.0, 0.0)
+            )
+            detected = true
+        }
+
+        // Convert back to RGBA
+        Imgproc.cvtColor(bgr, frame, Imgproc.COLOR_BGR2RGBA)
+
         gray.release()
+        bgr.release()
+        charucoCorners.release()
+        charucoIds.release()
         markerCorners.forEach { it.release() }
         markerIds.release()
 

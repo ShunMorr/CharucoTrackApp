@@ -72,6 +72,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         updateCalibrationStatus()
     }
 

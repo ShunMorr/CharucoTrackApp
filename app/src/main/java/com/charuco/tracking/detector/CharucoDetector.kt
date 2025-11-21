@@ -3,14 +3,18 @@ package com.charuco.tracking.detector
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
 import com.charuco.tracking.utils.PoseData
-import org.opencv.aruco.Aruco
 import org.opencv.objdetect.CharucoBoard
+import org.opencv.objdetect.CharucoDetector as OpenCVCharucoDetector
+import org.opencv.objdetect.CharucoParameters
 import org.opencv.objdetect.DetectorParameters
 import org.opencv.objdetect.Dictionary
 import org.opencv.objdetect.Objdetect
 import org.opencv.calib3d.Calib3d
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
+import org.opencv.core.MatOfPoint2f
+import org.opencv.core.MatOfPoint3f
+import org.opencv.core.MatOfDouble
 import kotlin.math.*
 
 /**
@@ -22,7 +26,7 @@ class CharucoDetector(
 ) {
     private val dictionary: Dictionary
     private val board: CharucoBoard
-    private val detectorParams: DetectorParameters
+    private val charucoDetector: OpenCVCharucoDetector
     private val cameraMatrix: Mat
     private val distCoeffs: Mat
 
@@ -51,13 +55,12 @@ class CharucoDetector(
             dictionary
         )
 
-        // Setup detector parameters for high precision
-        detectorParams = DetectorParameters().apply {
-            set_cornerRefinementMethod(Objdetect.CORNER_REFINE_SUBPIX)
-            set_cornerRefinementWinSize(5)
-            set_cornerRefinementMaxIterations(30)
-            set_cornerRefinementMinAccuracy(0.01)
-        }
+        // Setup detector parameters
+        val detectorParams = DetectorParameters()
+        detectorParams.set_cornerRefinementMethod(Objdetect.CORNER_REFINE_SUBPIX)
+
+        // Create CharucoDetector
+        charucoDetector = OpenCVCharucoDetector(board, CharucoParameters(), detectorParams)
 
         // Camera calibration parameters
         cameraMatrix = calibrationData.cameraMatrix
@@ -68,63 +71,70 @@ class CharucoDetector(
      * Detect ChArUco board and estimate pose
      */
     fun detectAndEstimatePose(frame: Mat): DetectionResult? {
+        if (frame.empty()) return null
+
         val gray = Mat()
-        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_BGR2GRAY)
+        Imgproc.cvtColor(frame, gray, Imgproc.COLOR_RGBA2GRAY)
 
-        // Detect ArUco markers
-        val markerCorners = mutableListOf<Mat>()
-        val markerIds = Mat()
-        val rejectedCandidates = mutableListOf<Mat>()
-
-        Aruco.detectMarkers(gray, dictionary, markerCorners, markerIds, detectorParams, rejectedCandidates)
-
-        if (markerIds.empty() || markerCorners.isEmpty()) {
-            gray.release()
-            return null
-        }
-
-        // Interpolate ChArUco corners
+        // Detect ChArUco board using new API
         val charucoCorners = Mat()
         val charucoIds = Mat()
+        val markerCorners = mutableListOf<Mat>()
+        val markerIds = Mat()
 
-        val numInterpolated = Aruco.interpolateCornersCharuco(
-            markerCorners,
-            markerIds,
-            gray,
-            board,
-            charucoCorners,
-            charucoIds,
-            cameraMatrix,
-            distCoeffs
-        )
+        charucoDetector.detectBoard(gray, charucoCorners, charucoIds, markerCorners, markerIds)
 
         gray.release()
         markerCorners.forEach { it.release() }
+        markerIds.release()
 
-        if (numInterpolated < 4) {
+        if (charucoCorners.rows() < 4) {
             charucoCorners.release()
             charucoIds.release()
-            markerIds.release()
             return null
         }
 
-        // Estimate pose
+        // Estimate pose using solvePnP
+        val boardCorners = Mat()
+        board.chessboardCorners.copyTo(boardCorners)
+
+        // Create object points (3D)
+        val objPointsList = mutableListOf<Point3>()
+        val imgPointsList = mutableListOf<Point>()
+        for (j in 0 until charucoIds.rows()) {
+            val id = charucoIds.get(j, 0)[0].toInt()
+            val pt3d = boardCorners.get(id, 0)
+            objPointsList.add(Point3(pt3d[0], pt3d[1], pt3d[2]))
+            val pt2d = charucoCorners.get(j, 0)
+            imgPointsList.add(Point(pt2d[0], pt2d[1]))
+        }
+        boardCorners.release()
+
+        val objPoints = MatOfPoint3f()
+        objPoints.fromList(objPointsList)
+        val imgPoints = MatOfPoint2f()
+        imgPoints.fromList(imgPointsList)
+
         val rvec = Mat()
         val tvec = Mat()
-        val success = Aruco.estimatePoseCharucoBoard(
-            charucoCorners,
-            charucoIds,
-            board,
+        // Convert distCoeffs to MatOfDouble (distCoeffs is 1xN format)
+        val distCoeffsMat = MatOfDouble(*DoubleArray(distCoeffs.cols()) { distCoeffs.get(0, it)[0] })
+
+        val success = Calib3d.solvePnP(
+            objPoints,
+            imgPoints,
             cameraMatrix,
-            distCoeffs,
+            distCoeffsMat,
             rvec,
             tvec
         )
 
+        objPoints.release()
+        imgPoints.release()
+
         if (!success) {
             charucoCorners.release()
             charucoIds.release()
-            markerIds.release()
             rvec.release()
             tvec.release()
             return null
@@ -139,7 +149,7 @@ class CharucoDetector(
             tvec = tvec,
             charucoCorners = charucoCorners,
             charucoIds = charucoIds,
-            numCorners = numInterpolated
+            numCorners = charucoCorners.rows()
         )
     }
 
@@ -220,10 +230,14 @@ class CharucoDetector(
         frame: Mat,
         detectionResult: DetectionResult
     ) {
+        // Convert to BGR for drawing
+        val bgr = Mat()
+        Imgproc.cvtColor(frame, bgr, Imgproc.COLOR_RGBA2BGR)
+
         // Draw detected corners
         if (!detectionResult.charucoCorners.empty()) {
             Objdetect.drawDetectedCornersCharuco(
-                frame,
+                bgr,
                 detectionResult.charucoCorners,
                 detectionResult.charucoIds,
                 Scalar(0.0, 255.0, 0.0)
@@ -233,13 +247,17 @@ class CharucoDetector(
         // Draw coordinate axes
         val axisLength = (configManager.getSquareLength() * 2).toFloat()
         Calib3d.drawFrameAxes(
-            frame,
+            bgr,
             cameraMatrix,
             distCoeffs,
             detectionResult.rvec,
             detectionResult.tvec,
             axisLength
         )
+
+        // Convert back to RGBA
+        Imgproc.cvtColor(bgr, frame, Imgproc.COLOR_BGR2RGBA)
+        bgr.release()
     }
 
     /**

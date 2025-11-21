@@ -63,6 +63,22 @@
             android:textSize="16sp" />
     </com.google.android.material.card.MaterialCardView>
 
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardElevation="4dp"
+        app:cardCornerRadius="8dp">
+
+        <Button
+            android:id="@+id/btnSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="設定"
+            android:padding="16dp"
+            android:textSize="16sp" />
+    </com.google.android.material.card.MaterialCardView>
+
     <TextView
         android:id="@+id/tvCalibrationStatus"
         android:layout_width="wrap_content"

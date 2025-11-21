@@ -30,6 +30,9 @@ class ConfigManager(private val context: Context) {
         const val KEY_TRACKING_FPS = "tracking_fps"
         const val KEY_MIN_CALIBRATION_FRAMES = "min_calibration_frames"
 
+        // Save Configuration
+        const val KEY_SAVE_PATH = "save_path"
+
         // Default values
         const val DEFAULT_DICTIONARY = "DICT_5X5_100"
         const val DEFAULT_SQUARES_X = 7
@@ -58,6 +61,9 @@ class ConfigManager(private val context: Context) {
     // Tracking Configuration
     fun getTrackingFps(): Int = prefs.getInt(KEY_TRACKING_FPS, DEFAULT_TRACKING_FPS)
     fun getMinCalibrationFrames(): Int = prefs.getInt(KEY_MIN_CALIBRATION_FRAMES, DEFAULT_MIN_CALIBRATION_FRAMES)
+
+    // Save Configuration
+    fun getSavePath(): String? = prefs.getString(KEY_SAVE_PATH, null)
 
     /**
      * Save configuration values

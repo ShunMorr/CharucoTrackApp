@@ -1,12 +1,16 @@
 package com.charuco.tracking.ui
 
 import android.app.AlertDialog
+import android.net.Uri
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.os.Environment
 import android.util.Log
+import android.view.View
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.documentfile.provider.DocumentFile
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
@@ -17,6 +21,7 @@ import com.charuco.tracking.tracking.TrajectoryTracker
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
 import com.charuco.tracking.utils.DataExporter
+import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import java.io.File
@@ -34,6 +39,7 @@ class TrackingActivity : AppCompatActivity() {
     private var imageAnalysis: ImageAnalysis? = null
     private var camera: Camera? = null
     private var lastProcessTime = 0L
+    private var countDownTimer: CountDownTimer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,9 +73,43 @@ class TrackingActivity : AppCompatActivity() {
             if (tracker.isTracking()) {
                 stopTracking()
             } else {
-                startTracking()
+                showDelayDialog()
             }
         }
+    }
+
+    private fun showDelayDialog() {
+        val input = EditText(this)
+        input.hint = "0"
+        input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+
+        AlertDialog.Builder(this)
+            .setTitle("開始までの遅延（秒）")
+            .setView(input)
+            .setPositiveButton("開始") { _, _ ->
+                val delay = input.text.toString().toIntOrNull() ?: 0
+                if (delay > 0) {
+                    startCountdown(delay)
+                } else {
+                    startTracking()
+                }
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+
+    private fun startCountdown(seconds: Int) {
+        binding.btnStartStop.isEnabled = false
+        countDownTimer = object : CountDownTimer(seconds * 1000L, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val sec = (millisUntilFinished / 1000) + 1
+                binding.tvPoseCount.text = "開始まで: ${sec}秒"
+            }
+            override fun onFinish() {
+                binding.btnStartStop.isEnabled = true
+                startTracking()
+            }
+        }.start()
     }
 
     private fun startTracking() {
@@ -111,16 +151,24 @@ class TrackingActivity : AppCompatActivity() {
         fileName: String
     ) {
         try {
-            val file = File(
-                getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
-                "$fileName.yaml"
-            )
-            dataExporter.exportTrajectory(trajectoryData, file)
-            Toast.makeText(
-                this,
-                "${getString(R.string.trajectory_saved)}: ${file.absolutePath}",
-                Toast.LENGTH_LONG
-            ).show()
+            val savePath = configManager.getSavePath()
+            if (savePath != null) {
+                // Use SAF URI
+                val uri = Uri.parse(savePath)
+                val dir = DocumentFile.fromTreeUri(this, uri)
+                val docFile = dir?.createFile("application/x-yaml", "$fileName.yaml")
+                docFile?.uri?.let { fileUri ->
+                    contentResolver.openOutputStream(fileUri)?.use { outputStream ->
+                        dataExporter.exportTrajectory(trajectoryData, outputStream)
+                    }
+                    Toast.makeText(this, "${getString(R.string.trajectory_saved)}: $fileName.yaml", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                // Default path
+                val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "$fileName.yaml")
+                dataExporter.exportTrajectory(trajectoryData, file)
+                Toast.makeText(this, "${getString(R.string.trajectory_saved)}: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save trajectory", e)
             Toast.makeText(this, getString(R.string.error_saving_file), Toast.LENGTH_LONG).show()
@@ -240,10 +288,16 @@ class TrackingActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        countDownTimer?.cancel()
         cameraExecutor.shutdown()
     }
 
     companion object {
         private const val TAG = "TrackingActivity"
+        init {
+            if (!OpenCVLoader.initLocal()) {
+                Log.e(TAG, "OpenCV initialization failed")
+            }
+        }
     }
 }
