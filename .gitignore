@@ -15,7 +15,7 @@ bin/
 gen/
 out/
 build/
-
+.claude/
 # Gradle files
 .gradle/
 gradle/wrapper/gradle-wrapper.jar
