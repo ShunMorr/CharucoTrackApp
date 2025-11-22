@@ -72,6 +72,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnDataViewer.setOnClickListener {
+            startActivity(Intent(this, DataViewerActivity::class.java))
+        }
+
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }

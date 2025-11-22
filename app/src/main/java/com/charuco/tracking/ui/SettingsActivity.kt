@@ -21,6 +21,15 @@ class SettingsActivity : AppCompatActivity() {
         "DICT_7X7_1000"
     )
 
+    // Resolution options (display name to width x height mapping)
+    private val resolutions = listOf(
+        "640x480 (VGA)" to Pair(640, 480),
+        "1280x720 (HD)" to Pair(1280, 720),
+        "1920x1080 (Full HD)" to Pair(1920, 1080),
+        "1920x1280" to Pair(1920, 1280),
+        "3840x2160 (4K)" to Pair(3840, 2160)
+    )
+
     private var selectedSavePath: String? = null
 
     private val folderPickerLauncher = registerForActivityResult(
@@ -51,9 +60,16 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupSpinner() {
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, dictionaries)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinnerDictionary.adapter = adapter
+        // Dictionary spinner
+        val dictAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, dictionaries)
+        dictAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerDictionary.adapter = dictAdapter
+
+        // Resolution spinner
+        val resolutionNames = resolutions.map { it.first }
+        val resAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, resolutionNames)
+        resAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerResolution.adapter = resAdapter
     }
 
     private fun loadCurrentSettings() {
@@ -62,6 +78,14 @@ class SettingsActivity : AppCompatActivity() {
         val dictIndex = dictionaries.indexOf(currentDict)
         if (dictIndex >= 0) {
             binding.spinnerDictionary.setSelection(dictIndex)
+        }
+
+        // Resolution
+        val currentWidth = configManager.getCameraWidth()
+        val currentHeight = configManager.getCameraHeight()
+        val resIndex = resolutions.indexOfFirst { it.second.first == currentWidth && it.second.second == currentHeight }
+        if (resIndex >= 0) {
+            binding.spinnerResolution.setSelection(resIndex)
         }
 
         // Other settings
@@ -102,6 +126,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveSettings() {
         try {
             val dictionary = dictionaries[binding.spinnerDictionary.selectedItemPosition]
+            val selectedResolution = resolutions[binding.spinnerResolution.selectedItemPosition].second
             val squaresX = binding.etSquaresX.text.toString().toInt()
             val squaresY = binding.etSquaresY.text.toString().toInt()
             val squareLength = binding.etSquareLength.text.toString().toFloat()
@@ -124,6 +149,8 @@ class SettingsActivity : AppCompatActivity() {
 
             // Save
             configManager.saveConfig(ConfigManager.KEY_DICTIONARY, dictionary)
+            configManager.saveConfig(ConfigManager.KEY_CAMERA_WIDTH, selectedResolution.first)
+            configManager.saveConfig(ConfigManager.KEY_CAMERA_HEIGHT, selectedResolution.second)
             configManager.saveConfig(ConfigManager.KEY_SQUARES_X, squaresX)
             configManager.saveConfig(ConfigManager.KEY_SQUARES_Y, squaresY)
             configManager.saveConfig(ConfigManager.KEY_SQUARE_LENGTH, squareLength)

@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Data Type Selection -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="データタイプ"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgDataType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/rbTrajectory"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="軌跡データ"
+                android:checked="true" />
+
+            <RadioButton
+                android:id="@+id/rbSpot"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="スポット測定" />
+        </RadioGroup>
+
+        <!-- Trajectory Data Section -->
+        <LinearLayout
+            android:id="@+id/trajectorySection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="visible">
+
+            <Button
+                android:id="@+id/btnLoadTrajectory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="軌跡ファイルを読み込む"
+                android:layout_marginBottom="16dp" />
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:tabMode="scrollable" />
+
+            <!-- Quality Filter -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Qualityフィルタ"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="最小値:"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="8dp" />
+
+                <SeekBar
+                    android:id="@+id/seekBarQuality"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:max="100"
+                    android:progress="0"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tvQualityValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.00"
+                    android:textSize="12sp"
+                    android:minWidth="40dp"
+                    android:gravity="end" />
+            </LinearLayout>
+
+            <!-- Trajectory Chart with Labels -->
+            <TextView
+                android:id="@+id/tvTrajectoryYAxisLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Y軸: "
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/trajectoryChart"
+                android:layout_width="match_parent"
+                android:layout_height="400dp"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvTrajectoryXAxisLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="X軸: フレーム番号"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="16dp" />
+        </LinearLayout>
+
+        <!-- Spot Measurement Section -->
+        <LinearLayout
+            android:id="@+id/spotSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="基準ファイル"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <Button
+                android:id="@+id/btnLoadReference"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="基準ファイルを選択"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:id="@+id/tvReferenceFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="未選択"
+                android:textSize="12sp"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="比較対象ファイル"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <Button
+                android:id="@+id/btnLoadComparison"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="比較ファイルを追加"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvComparisonFiles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="未選択"
+                android:textSize="12sp"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Axis Selection -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="表示軸"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginEnd="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="X軸"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="4dp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerXAxis"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Y軸"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="4dp" />
+
+                    <Spinner
+                        android:id="@+id/spinnerYAxis"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnPlotSpot"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="グラフ表示"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Spot Chart with Labels -->
+            <TextView
+                android:id="@+id/tvSpotYAxisLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Y軸: "
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <com.github.mikephil.charting.charts.ScatterChart
+                android:id="@+id/spotChart"
+                android:layout_width="match_parent"
+                android:layout_height="400dp"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvSpotXAxisLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="X軸: "
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="16dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

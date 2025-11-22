@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Environment
 import android.util.Log
+import android.util.Size
 import android.view.View
 import android.widget.EditText
 import android.widget.Toast
@@ -196,6 +197,7 @@ class SpotMeasurementActivity : AppCompatActivity() {
                 }
 
             imageAnalysis = ImageAnalysis.Builder()
+                .setTargetResolution(Size(configManager.getCameraWidth(), configManager.getCameraHeight()))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {

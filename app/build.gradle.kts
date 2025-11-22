@@ -106,6 +106,9 @@ dependencies {
     // YAML support
     implementation("org.yaml:snakeyaml:2.2")
 
+    // MPAndroidChart for data visualization
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 

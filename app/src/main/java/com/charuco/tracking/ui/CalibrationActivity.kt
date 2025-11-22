@@ -2,6 +2,7 @@ package com.charuco.tracking.ui
 
 import android.os.Bundle
 import android.util.Log
+import android.util.Size
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -101,6 +102,7 @@ class CalibrationActivity : AppCompatActivity() {
                 }
 
             imageAnalysis = ImageAnalysis.Builder()
+                .setTargetResolution(Size(configManager.getCameraWidth(), configManager.getCameraHeight()))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {

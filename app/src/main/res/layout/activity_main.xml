@@ -71,6 +71,22 @@
         app:cardCornerRadius="8dp">
 
         <Button
+            android:id="@+id/btnDataViewer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="データビューアー"
+            android:padding="16dp"
+            android:textSize="16sp" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardElevation="4dp"
+        app:cardCornerRadius="8dp">
+
+        <Button
             android:id="@+id/btnSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -39,8 +39,8 @@ class ConfigManager(private val context: Context) {
         const val DEFAULT_SQUARES_Y = 7
         const val DEFAULT_SQUARE_LENGTH = 0.04  // meters
         const val DEFAULT_MARKER_LENGTH = 0.03  // meters
-        const val DEFAULT_CAMERA_WIDTH = 1280
-        const val DEFAULT_CAMERA_HEIGHT = 720
+        const val DEFAULT_CAMERA_WIDTH = 1920
+        const val DEFAULT_CAMERA_HEIGHT = 1280
         const val DEFAULT_CAMERA_FPS = 30
         const val DEFAULT_TRACKING_FPS = 10
         const val DEFAULT_MIN_CALIBRATION_FRAMES = 30
