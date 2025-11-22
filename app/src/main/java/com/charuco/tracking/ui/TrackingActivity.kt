@@ -22,7 +22,7 @@ import com.charuco.tracking.tracking.TrajectoryTracker
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
 import com.charuco.tracking.utils.DataExporter
-import org.opencv.android.OpenCVLoader
+import com.charuco.tracking.utils.FileUtils
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import java.io.File
@@ -42,6 +42,10 @@ class TrackingActivity : AppCompatActivity() {
     private var lastProcessTime = 0L
     private var countDownTimer: CountDownTimer? = null
 
+    companion object {
+        private const val TAG = "TrackingActivity"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityTrackingBinding.inflate(layoutInflater)
@@ -58,6 +62,9 @@ class TrackingActivity : AppCompatActivity() {
         }
 
         detector = CharucoDetector(configManager, calibrationData)
+        // Release calibrationData as detector now owns copies of the Mat objects
+        calibrationData.release()
+
         tracker = TrajectoryTracker()
         dataExporter = DataExporter()
 
@@ -140,7 +147,8 @@ class TrackingActivity : AppCompatActivity() {
             .setPositiveButton(getString(R.string.save)) { _, _ ->
                 val fileName = input.text.toString().trim()
                 if (fileName.isNotEmpty()) {
-                    saveTrajectory(trajectoryData, fileName)
+                    val sanitizedFileName = FileUtils.sanitizeFileName(fileName)
+                    saveTrajectory(trajectoryData, sanitizedFileName)
                 }
             }
             .setNegativeButton(getString(R.string.cancel), null)
@@ -219,52 +227,60 @@ class TrackingActivity : AppCompatActivity() {
 
         @androidx.camera.core.ExperimentalGetImage
         override fun analyze(imageProxy: ImageProxy) {
-            val mediaImage = imageProxy.image
-            if (mediaImage != null) {
-                val currentTime = System.currentTimeMillis()
-                val trackingInterval = 1000.0 / configManager.getTrackingFps()
+            try {
+                val mediaImage = imageProxy.image
+                if (mediaImage != null) {
+                    val currentTime = System.currentTimeMillis()
+                    val trackingInterval = 1000.0 / configManager.getTrackingFps()
 
-                // Check if enough time has passed for tracking
-                if (currentTime - lastProcessTime >= trackingInterval || !tracker.isTracking()) {
-                    val bitmap = imageProxy.toBitmap()
-                    val mat = Mat()
-                    Utils.bitmapToMat(bitmap, mat)
+                    // Check if enough time has passed for tracking
+                    if (currentTime - lastProcessTime >= trackingInterval || !tracker.isTracking()) {
+                        val bitmap = imageProxy.toBitmap()
+                        val mat = Mat()
+                        Utils.bitmapToMat(bitmap, mat)
 
-                    val detectionResult = detector.detectAndEstimatePose(mat)
+                        val detectionResult = detector.detectAndEstimatePose(mat)
 
-                    if (detectionResult != null) {
-                        // Add pose to tracker if tracking
-                        if (tracker.isTracking()) {
-                            tracker.addPose(detectionResult.poseData)
+                        if (detectionResult != null) {
+                            // Add pose to tracker if tracking
+                            if (tracker.isTracking()) {
+                                tracker.addPose(detectionResult.poseData)
+                            }
+
+                            runOnUiThread {
+                                updateUI(detectionResult.poseData)
+                            }
+
+                            detectionResult.release()
+                        } else {
+                            runOnUiThread {
+                                updateUI()
+                            }
                         }
 
-                        runOnUiThread {
-                            updateUI(detectionResult.poseData)
-                        }
-
-                        detectionResult.release()
-                    } else {
-                        runOnUiThread {
-                            updateUI()
-                        }
+                        mat.release()
+                        lastProcessTime = currentTime
                     }
 
-                    mat.release()
-                    lastProcessTime = currentTime
-                }
-
-                // Calculate FPS
-                frameCount++
-                if (currentTime - lastFpsTime >= 1000) {
-                    val fps = frameCount.toFloat() / ((currentTime - lastFpsTime) / 1000f)
-                    runOnUiThread {
-                        binding.tvFps.text = getString(R.string.fps, fps)
+                    // Calculate FPS
+                    frameCount++
+                    if (currentTime - lastFpsTime >= 1000) {
+                        val fps = frameCount.toFloat() / ((currentTime - lastFpsTime) / 1000f)
+                        runOnUiThread {
+                            binding.tvFps.text = getString(R.string.fps, fps)
+                        }
+                        frameCount = 0
+                        lastFpsTime = currentTime
                     }
-                    frameCount = 0
-                    lastFpsTime = currentTime
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in image analysis", e)
+                runOnUiThread {
+                    Toast.makeText(this@TrackingActivity, "画像処理エラー: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                imageProxy.close()
             }
-            imageProxy.close()
         }
     }
 
@@ -292,14 +308,6 @@ class TrackingActivity : AppCompatActivity() {
         super.onDestroy()
         countDownTimer?.cancel()
         cameraExecutor.shutdown()
-    }
-
-    companion object {
-        private const val TAG = "TrackingActivity"
-        init {
-            if (!OpenCVLoader.initLocal()) {
-                Log.e(TAG, "OpenCV initialization failed")
-            }
-        }
+        detector.release()
     }
 }

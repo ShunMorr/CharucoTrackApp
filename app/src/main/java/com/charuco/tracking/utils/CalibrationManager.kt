@@ -9,6 +9,9 @@ import java.io.FileWriter
 
 /**
  * Manages camera calibration parameters
+ *
+ * Note: File I/O operations are synchronous and should ideally be called from background threads.
+ * For UI thread usage, use hasCalibration() first to minimize file access.
  */
 class CalibrationManager(private val context: Context) {
     companion object {
@@ -18,8 +21,15 @@ class CalibrationManager(private val context: Context) {
     private val calibrationFile: File
         get() = File(context.filesDir, CALIBRATION_FILE)
 
+    // Cache to minimize repeated file I/O
+    @Volatile
+    private var cachedCalibrationData: CalibrationData? = null
+    @Volatile
+    private var cacheValid = false
+
     /**
      * Save calibration parameters to YAML file
+     * Note: This performs synchronous file I/O. Should be called from background thread.
      */
     fun saveCalibration(
         cameraMatrix: Mat,
@@ -56,12 +66,35 @@ class CalibrationManager(private val context: Context) {
         FileWriter(calibrationFile).use { writer ->
             yaml.dump(data, writer)
         }
+
+        // Invalidate cache after save
+        synchronized(this) {
+            cacheValid = false
+            cachedCalibrationData?.release()
+            cachedCalibrationData = null
+        }
     }
 
     /**
      * Load calibration parameters from YAML file
+     * Note: This performs synchronous file I/O. Should ideally be called from background thread.
+     * However, caching minimizes repeated file access.
      */
     fun loadCalibration(): CalibrationData? {
+        // Return cached data if valid
+        synchronized(this) {
+            if (cacheValid && cachedCalibrationData != null) {
+                // Create copies to return
+                val cached = cachedCalibrationData!!
+                val cameraMatrix = Mat()
+                cached.cameraMatrix.copyTo(cameraMatrix)
+                val distCoeffs = Mat()
+                cached.distCoeffs.copyTo(distCoeffs)
+                return CalibrationData(cameraMatrix, distCoeffs, cached.reprojectionError)
+            }
+        }
+
+        // Load from file
         if (!calibrationFile.exists()) {
             return null
         }
@@ -90,7 +123,20 @@ class CalibrationManager(private val context: Context) {
 
             val reprojectionError = (data["reprojection_error"] as? Number)?.toDouble() ?: 0.0
 
-            return CalibrationData(cameraMatrix, distCoeffs, reprojectionError)
+            val calibrationData = CalibrationData(cameraMatrix, distCoeffs, reprojectionError)
+
+            // Cache the loaded data
+            synchronized(this) {
+                cachedCalibrationData?.release()
+                val cachedMatrix = Mat()
+                cameraMatrix.copyTo(cachedMatrix)
+                val cachedCoeffs = Mat()
+                distCoeffs.copyTo(cachedCoeffs)
+                cachedCalibrationData = CalibrationData(cachedMatrix, cachedCoeffs, reprojectionError)
+                cacheValid = true
+            }
+
+            return calibrationData
         } catch (e: Exception) {
             e.printStackTrace()
             return null
@@ -102,9 +148,29 @@ class CalibrationManager(private val context: Context) {
      */
     fun hasCalibration(): Boolean = calibrationFile.exists()
 
+    /**
+     * Clear cached calibration data
+     * Call this when CalibrationManager is no longer needed
+     */
+    fun clearCache() {
+        synchronized(this) {
+            cachedCalibrationData?.release()
+            cachedCalibrationData = null
+            cacheValid = false
+        }
+    }
+
     data class CalibrationData(
         val cameraMatrix: Mat,
         val distCoeffs: Mat,
         val reprojectionError: Double
-    )
+    ) {
+        /**
+         * Release OpenCV Mat objects to prevent memory leaks
+         */
+        fun release() {
+            cameraMatrix.release()
+            distCoeffs.release()
+        }
+    }
 }

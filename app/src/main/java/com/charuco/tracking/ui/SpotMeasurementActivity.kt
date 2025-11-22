@@ -22,8 +22,8 @@ import com.charuco.tracking.tracking.SpotMeasurer
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
 import com.charuco.tracking.utils.DataExporter
+import com.charuco.tracking.utils.FileUtils
 import com.charuco.tracking.utils.SpotMeasurement
-import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import java.io.File
@@ -43,6 +43,10 @@ class SpotMeasurementActivity : AppCompatActivity() {
     private var completedMeasurement: SpotMeasurement? = null
     private var countDownTimer: CountDownTimer? = null
 
+    companion object {
+        private const val TAG = "SpotMeasurementActivity"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySpotMeasurementBinding.inflate(layoutInflater)
@@ -59,6 +63,9 @@ class SpotMeasurementActivity : AppCompatActivity() {
         }
 
         detector = CharucoDetector(configManager, calibrationData)
+        // Release calibrationData as detector now owns copies of the Mat objects
+        calibrationData.release()
+
         measurer = SpotMeasurer(targetSamples = 30)
         dataExporter = DataExporter()
 
@@ -153,7 +160,8 @@ class SpotMeasurementActivity : AppCompatActivity() {
             .setPositiveButton(getString(R.string.save)) { _, _ ->
                 val fileName = input.text.toString().trim()
                 if (fileName.isNotEmpty()) {
-                    saveMeasurement(measurement, fileName)
+                    val sanitizedFileName = FileUtils.sanitizeFileName(fileName)
+                    saveMeasurement(measurement, sanitizedFileName)
                 }
             }
             .setNegativeButton(getString(R.string.cancel), null)
@@ -224,39 +232,47 @@ class SpotMeasurementActivity : AppCompatActivity() {
     private inner class MeasurementAnalyzer : ImageAnalysis.Analyzer {
         @androidx.camera.core.ExperimentalGetImage
         override fun analyze(imageProxy: ImageProxy) {
-            val mediaImage = imageProxy.image
-            if (mediaImage != null) {
-                val bitmap = imageProxy.toBitmap()
-                val mat = Mat()
-                Utils.bitmapToMat(bitmap, mat)
+            try {
+                val mediaImage = imageProxy.image
+                if (mediaImage != null) {
+                    val bitmap = imageProxy.toBitmap()
+                    val mat = Mat()
+                    Utils.bitmapToMat(bitmap, mat)
 
-                val detectionResult = detector.detectAndEstimatePose(mat)
+                    val detectionResult = detector.detectAndEstimatePose(mat)
 
-                if (detectionResult != null) {
-                    // Add sample if measuring
-                    if (measurer.isMeasuring()) {
-                        val isComplete = measurer.addSample(detectionResult.poseData)
+                    if (detectionResult != null) {
+                        // Add sample if measuring
+                        if (measurer.isMeasuring()) {
+                            val isComplete = measurer.addSample(detectionResult.poseData)
 
-                        runOnUiThread {
-                            updateUI()
-                        }
+                            runOnUiThread {
+                                updateUI()
+                            }
 
-                        if (isComplete) {
-                            val measurement = measurer.stop()
-                            if (measurement != null) {
-                                runOnUiThread {
-                                    onMeasurementComplete(measurement)
+                            if (isComplete) {
+                                val measurement = measurer.stop()
+                                if (measurement != null) {
+                                    runOnUiThread {
+                                        onMeasurementComplete(measurement)
+                                    }
                                 }
                             }
                         }
+
+                        detectionResult.release()
                     }
 
-                    detectionResult.release()
+                    mat.release()
                 }
-
-                mat.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in image analysis", e)
+                runOnUiThread {
+                    Toast.makeText(this@SpotMeasurementActivity, "画像処理エラー: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                imageProxy.close()
             }
-            imageProxy.close()
         }
     }
 
@@ -281,14 +297,6 @@ class SpotMeasurementActivity : AppCompatActivity() {
         super.onDestroy()
         countDownTimer?.cancel()
         cameraExecutor.shutdown()
-    }
-
-    companion object {
-        private const val TAG = "SpotMeasurementActivity"
-        init {
-            if (!OpenCVLoader.initLocal()) {
-                Log.e(TAG, "OpenCV initialization failed")
-            }
-        }
+        detector.release()
     }
 }

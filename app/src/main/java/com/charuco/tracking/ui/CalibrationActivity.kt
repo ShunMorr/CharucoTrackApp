@@ -14,11 +14,11 @@ import com.charuco.tracking.calibration.CameraCalibrator
 import com.charuco.tracking.databinding.ActivityCalibrationBinding
 import com.charuco.tracking.utils.CalibrationManager
 import com.charuco.tracking.utils.ConfigManager
-import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CalibrationActivity : AppCompatActivity() {
     private lateinit var binding: ActivityCalibrationBinding
@@ -29,16 +29,10 @@ class CalibrationActivity : AppCompatActivity() {
 
     private var imageAnalysis: ImageAnalysis? = null
     private var camera: Camera? = null
-    @Volatile
-    private var captureNextFrame = false
+    private val captureNextFrame = AtomicBoolean(false)
 
     companion object {
         private const val TAG = "CalibrationActivity"
-        init {
-            if (!OpenCVLoader.initLocal()) {
-                Log.e(TAG, "OpenCV initialization failed")
-            }
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,7 +74,7 @@ class CalibrationActivity : AppCompatActivity() {
         updateFrameCount()
 
         binding.btnCaptureFrame.setOnClickListener {
-            captureNextFrame = true
+            captureNextFrame.set(true)
             Toast.makeText(this, "フレームをキャプチャ中...", Toast.LENGTH_SHORT).show()
         }
 
@@ -132,41 +126,49 @@ class CalibrationActivity : AppCompatActivity() {
 
         @androidx.camera.core.ExperimentalGetImage
         override fun analyze(imageProxy: ImageProxy) {
-            val mediaImage = imageProxy.image
-            if (mediaImage != null) {
-                val bitmap = imageProxy.toBitmap()
-                val mat = Mat()
-                Utils.bitmapToMat(bitmap, mat)
+            try {
+                val mediaImage = imageProxy.image
+                if (mediaImage != null) {
+                    val bitmap = imageProxy.toBitmap()
+                    val mat = Mat()
+                    Utils.bitmapToMat(bitmap, mat)
 
-                // Capture frame if requested (before drawing)
-                if (captureNextFrame) {
-                    captureNextFrame = false
-                    if (calibrator.captureFrame(mat)) {
-                        runOnUiThread {
-                            updateFrameCount()
-                            Toast.makeText(
-                                this@CalibrationActivity,
-                                "フレーム取得成功",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    } else {
-                        runOnUiThread {
-                            Toast.makeText(
-                                this@CalibrationActivity,
-                                "ChArUcoボードが検出できません",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                    // Capture frame if requested (before drawing)
+                    // Use compareAndSet to atomically check and reset the flag
+                    if (captureNextFrame.compareAndSet(true, false)) {
+                        if (calibrator.captureFrame(mat)) {
+                            runOnUiThread {
+                                updateFrameCount()
+                                Toast.makeText(
+                                    this@CalibrationActivity,
+                                    "フレーム取得成功",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        } else {
+                            runOnUiThread {
+                                Toast.makeText(
+                                    this@CalibrationActivity,
+                                    "ChArUcoボードが検出できません",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
                     }
+
+                    // Draw detection (after capture)
+                    calibrator.drawDetection(mat)
+
+                    mat.release()
                 }
-
-                // Draw detection (after capture)
-                calibrator.drawDetection(mat)
-
-                mat.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in image analysis", e)
+                runOnUiThread {
+                    Toast.makeText(this@CalibrationActivity, "画像処理エラー: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                imageProxy.close()
             }
-            imageProxy.close()
         }
     }
 

@@ -131,6 +131,23 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Trajectory Statistics -->
+            <TextView
+                android:id="@+id/tvTrajectoryStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="12sp"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnSaveTrajectoryChart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="グラフをPNG保存"
                 android:layout_marginBottom="16dp" />
         </LinearLayout>
 
@@ -274,6 +291,23 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Spot Statistics -->
+            <TextView
+                android:id="@+id/tvSpotStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="12sp"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnSaveSpotChart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="グラフをPNG保存"
                 android:layout_marginBottom="16dp" />
         </LinearLayout>
 

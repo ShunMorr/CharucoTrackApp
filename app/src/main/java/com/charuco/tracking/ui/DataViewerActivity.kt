@@ -1,15 +1,27 @@
 package com.charuco.tracking.ui
 
+import android.app.AlertDialog
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.Toast
+import androidx.documentfile.provider.DocumentFile
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.sqrt
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.charuco.tracking.databinding.ActivityDataViewerBinding
+import com.charuco.tracking.utils.ConfigManager
 import com.charuco.tracking.utils.DataLoader
+import com.charuco.tracking.utils.FileUtils
 import com.charuco.tracking.utils.SpotMeasurement
 import com.charuco.tracking.utils.TrajectoryData
 import com.github.mikephil.charting.charts.ScatterChart
@@ -22,6 +34,7 @@ import com.google.android.material.tabs.TabLayout
 class DataViewerActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDataViewerBinding
     private lateinit var dataLoader: DataLoader
+    private lateinit var configManager: ConfigManager
 
     // Trajectory data
     private var trajectoryData: TrajectoryData? = null
@@ -57,6 +70,7 @@ class DataViewerActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         dataLoader = DataLoader(this)
+        configManager = ConfigManager(this)
 
         setupUI()
     }
@@ -76,6 +90,11 @@ class DataViewerActivity : AppCompatActivity() {
         binding.btnLoadTrajectory.setOnClickListener {
             trajectoryFileLauncher.launch(arrayOf("*/*"))
         }
+        binding.btnSaveTrajectoryChart.setOnClickListener {
+            showSaveChartDialog("trajectory_chart") { fileName ->
+                saveTrajectoryChartAsPng(fileName)
+            }
+        }
 
         // Spot section
         setupAxisSpinners()
@@ -87,6 +106,11 @@ class DataViewerActivity : AppCompatActivity() {
         }
         binding.btnPlotSpot.setOnClickListener {
             plotSpotData()
+        }
+        binding.btnSaveSpotChart.setOnClickListener {
+            showSaveChartDialog("spot_chart") { fileName ->
+                saveSpotChartAsPng(fileName)
+            }
         }
 
         // Show trajectory by default
@@ -204,23 +228,61 @@ class DataViewerActivity : AppCompatActivity() {
             this.data = LineData(dataSet)
             description.isEnabled = false
 
-            xAxis.apply {
-                position = XAxis.XAxisPosition.BOTTOM
-                setDrawGridLines(true)
-                setDrawLabels(true)
-                textSize = 10f
-                textColor = Color.YELLOW
-                granularity = 0.1f
-            }
+            // Calculate axis ranges with 1.1x margin
+            if (entries.isNotEmpty()) {
+                val xValues = entries.map { it.x }
+                val yValues = entries.map { it.y }
 
-            axisLeft.apply {
-                setDrawGridLines(true)
-                setDrawLabels(true)
-                textSize = 10f
-                textColor = Color.YELLOW
+                val xMin = xValues.minOrNull() ?: 0f
+                val xMax = xValues.maxOrNull() ?: 0f
+                val xRange = xMax - xMin
+                val xMargin = xRange * 0.05f // 5% margin on each side = 10% total
+
+                val yMin = yValues.minOrNull() ?: 0f
+                val yMax = yValues.maxOrNull() ?: 0f
+                val yRange = yMax - yMin
+                val yMargin = yRange * 0.05f
+
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    granularity = 0.1f
+                    axisMinimum = xMin - xMargin
+                    axisMaximum = xMax + xMargin
+                }
+
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    axisMinimum = yMin - yMargin
+                    axisMaximum = yMax + yMargin
+                }
+            } else {
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    granularity = 0.1f
+                }
+
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                }
             }
 
             axisRight.isEnabled = false
+
+            legend.isEnabled = false
 
             // Keep aspect ratio close to 1:1 for better visualization
             setScaleEnabled(true)
@@ -229,6 +291,22 @@ class DataViewerActivity : AppCompatActivity() {
 
             setExtraOffsets(10f, 10f, 10f, 20f)
             invalidate()
+        }
+
+        // Calculate and display statistics
+        if (entries.size >= 2) {
+            val firstValue = entries.first().y
+            val lastValue = entries.last().y
+            val diff = lastValue - firstValue
+            val unit = when (currentAxis) {
+                "X", "Y", "Z" -> "mm"
+                "Roll", "Pitch", "Yaw" -> "deg"
+                "Quality" -> ""
+                else -> ""
+            }
+            binding.tvTrajectoryStats.text = "開始と最終の差分: %.4f %s".format(diff, unit)
+        } else {
+            binding.tvTrajectoryStats.text = ""
         }
     }
 
@@ -327,33 +405,85 @@ class DataViewerActivity : AppCompatActivity() {
             data = ScatterData(entries as List<IScatterDataSet>)
             description.isEnabled = false
 
-            xAxis.apply {
-                position = XAxis.XAxisPosition.BOTTOM
-                setDrawGridLines(true)
-                setDrawLabels(true)
-                textSize = 10f
-                textColor = Color.YELLOW
-                valueFormatter = object : ValueFormatter() {
-                    override fun getFormattedValue(value: Float): String {
-                        return "%.2f".format(value)
-                    }
+            // Calculate axis ranges with 1.1x margin
+            val allXValues = mutableListOf<Float>()
+            val allYValues = mutableListOf<Float>()
+            entries.forEach { dataset ->
+                dataset.values.forEach { entry ->
+                    allXValues.add(entry.x)
+                    allYValues.add(entry.y)
                 }
             }
 
-            axisLeft.apply {
-                setDrawGridLines(true)
-                setDrawLabels(true)
-                textSize = 10f
-                textColor = Color.YELLOW
-                valueFormatter = object : ValueFormatter() {
-                    override fun getFormattedValue(value: Float): String {
-                        return "%.2f".format(value)
+            if (allXValues.isNotEmpty() && allYValues.isNotEmpty()) {
+                val xMin = allXValues.minOrNull() ?: 0f
+                val xMax = allXValues.maxOrNull() ?: 0f
+                val xRange = xMax - xMin
+                val xMargin = if (xRange > 0) xRange * 0.05f else 1f
+
+                val yMin = allYValues.minOrNull() ?: 0f
+                val yMax = allYValues.maxOrNull() ?: 0f
+                val yRange = yMax - yMin
+                val yMargin = if (yRange > 0) yRange * 0.05f else 1f
+
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return "%.2f".format(value)
+                        }
+                    }
+                    axisMinimum = xMin - xMargin
+                    axisMaximum = xMax + xMargin
+                }
+
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return "%.2f".format(value)
+                        }
+                    }
+                    axisMinimum = yMin - yMargin
+                    axisMaximum = yMax + yMargin
+                }
+            } else {
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return "%.2f".format(value)
+                        }
+                    }
+                }
+
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                    setDrawLabels(true)
+                    textSize = 10f
+                    textColor = Color.YELLOW
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return "%.2f".format(value)
+                        }
                     }
                 }
             }
 
             axisRight.isEnabled = false
-            legend.isEnabled = true
+
+            legend.isEnabled = false
 
             // Keep aspect ratio close to 1:1 for better visualization
             setScaleEnabled(true)
@@ -365,6 +495,39 @@ class DataViewerActivity : AppCompatActivity() {
 
             setExtraOffsets(10f, 10f, 10f, 20f)
             invalidate()
+        }
+
+        // Calculate and display statistics for differences
+        if (comparisonSpots.isNotEmpty()) {
+            val xDiffs = mutableListOf<Double>()
+            val yDiffs = mutableListOf<Double>()
+
+            comparisonSpots.forEach { (_, spot) ->
+                xDiffs.add(getValue(spot, xAxisName) - getValue(reference, xAxisName))
+                yDiffs.add(getValue(spot, yAxisName) - getValue(reference, yAxisName))
+            }
+
+            // Calculate statistics for both axes
+            val xMean = xDiffs.average()
+            val xMin = xDiffs.minOrNull() ?: 0.0
+            val xMax = xDiffs.maxOrNull() ?: 0.0
+            val xVariance = xDiffs.map { (it - xMean) * (it - xMean) }.average()
+
+            val yMean = yDiffs.average()
+            val yMin = yDiffs.minOrNull() ?: 0.0
+            val yMax = yDiffs.maxOrNull() ?: 0.0
+            val yVariance = yDiffs.map { (it - yMean) * (it - yMean) }.average()
+
+            val xUnit = getAxisUnit(xAxisName)
+            val yUnit = getAxisUnit(yAxisName)
+
+            binding.tvSpotStats.text = """
+                X軸(${xAxisName}): 平均=%.4f%s, 分散=%.4f, 最小=%.4f%s, 最大=%.4f%s
+                Y軸(${yAxisName}): 平均=%.4f%s, 分散=%.4f, 最小=%.4f%s, 最大=%.4f%s
+            """.trimIndent().format(xMean, xUnit, xVariance, xMin, xUnit, xMax, xUnit,
+                                     yMean, yUnit, yVariance, yMin, yUnit, yMax, yUnit)
+        } else {
+            binding.tvSpotStats.text = ""
         }
     }
 
@@ -385,6 +548,236 @@ class DataViewerActivity : AppCompatActivity() {
             "X", "Y", "Z" -> "$axis (mm)"
             "ROLL", "PITCH", "YAW" -> "$axis (deg)"
             else -> axis
+        }
+    }
+
+    private fun getAxisUnit(axis: String): String {
+        return when (axis) {
+            "X", "Y", "Z" -> "mm"
+            "ROLL", "PITCH", "YAW" -> "deg"
+            else -> ""
+        }
+    }
+
+    private fun showSaveChartDialog(defaultName: String, onSave: (String) -> Unit) {
+        val input = EditText(this)
+        input.setText(defaultName)
+        input.selectAll()
+
+        AlertDialog.Builder(this)
+            .setTitle("ファイル名を入力")
+            .setView(input)
+            .setPositiveButton("保存") { _, _ ->
+                val fileName = input.text.toString().trim()
+                if (fileName.isNotEmpty()) {
+                    val sanitizedFileName = FileUtils.sanitizeFileName(fileName)
+                    onSave(sanitizedFileName)
+                }
+            }
+            .setNegativeButton("キャンセル", null)
+            .show()
+    }
+
+    private fun saveTrajectoryChartAsPng(fileName: String) {
+        val chart = binding.trajectoryChart
+        val data = trajectoryData ?: return
+
+        // Save current settings
+        val originalXAxisTextColor = chart.xAxis.textColor
+        val originalYAxisTextColor = chart.axisLeft.textColor
+        val originalDescriptionEnabled = chart.description.isEnabled
+
+        try {
+            // Temporarily change chart settings for export
+            chart.xAxis.textColor = Color.BLACK
+            chart.axisLeft.textColor = Color.BLACK
+
+            // Add description with statistics only
+            val stats = binding.tvTrajectoryStats.text.toString()
+
+            chart.description.apply {
+                isEnabled = true
+                text = stats
+                textColor = Color.BLACK
+                textSize = 12f
+            }
+
+            // Set axis labels
+            chart.xAxis.apply {
+                setDrawLabels(true)
+                textColor = Color.BLACK
+            }
+            chart.axisLeft.apply {
+                setDrawLabels(true)
+                textColor = Color.BLACK
+            }
+
+            // Refresh chart
+            chart.invalidate()
+
+            // Get bitmap
+            val chartBitmap = chart.chartBitmap
+            if (chartBitmap == null) {
+                Toast.makeText(this, "グラフが表示されていません", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            // Add axis labels to bitmap
+            val xAxisLabel = binding.tvTrajectoryXAxisLabel.text.toString()
+            val yAxisLabel = binding.tvTrajectoryYAxisLabel.text.toString()
+            val bitmapWithLabels = addAxisLabelsToBitmap(chartBitmap, xAxisLabel, yAxisLabel)
+
+            // Recycle original bitmap to free memory
+            chartBitmap.recycle()
+
+            // Save to file
+            saveBitmapToFile(bitmapWithLabels, fileName)
+
+            // Recycle final bitmap after saving
+            bitmapWithLabels.recycle()
+
+        } finally {
+            // Restore original settings
+            chart.xAxis.textColor = originalXAxisTextColor
+            chart.axisLeft.textColor = originalYAxisTextColor
+            chart.description.isEnabled = originalDescriptionEnabled
+            chart.invalidate()
+        }
+    }
+
+    private fun saveSpotChartAsPng(fileName: String) {
+        val chart = binding.spotChart
+
+        // Save current settings
+        val originalXAxisTextColor = chart.xAxis.textColor
+        val originalYAxisTextColor = chart.axisLeft.textColor
+        val originalDescriptionEnabled = chart.description.isEnabled
+
+        try {
+            // Temporarily change chart settings for export
+            chart.xAxis.textColor = Color.BLACK
+            chart.axisLeft.textColor = Color.BLACK
+
+            // Add description with statistics only
+            val stats = binding.tvSpotStats.text.toString().replace("\n", " / ")
+
+            chart.description.apply {
+                isEnabled = true
+                text = stats
+                textColor = Color.BLACK
+                textSize = 10f
+            }
+
+            // Set axis labels
+            chart.xAxis.apply {
+                setDrawLabels(true)
+                textColor = Color.BLACK
+            }
+            chart.axisLeft.apply {
+                setDrawLabels(true)
+                textColor = Color.BLACK
+            }
+
+            // Refresh chart
+            chart.invalidate()
+
+            // Get bitmap
+            val chartBitmap = chart.chartBitmap
+            if (chartBitmap == null) {
+                Toast.makeText(this, "グラフが表示されていません", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            // Add axis labels to bitmap
+            val xAxisLabel = binding.tvSpotXAxisLabel.text.toString()
+            val yAxisLabel = binding.tvSpotYAxisLabel.text.toString()
+            val bitmapWithLabels = addAxisLabelsToBitmap(chartBitmap, xAxisLabel, yAxisLabel)
+
+            // Recycle original bitmap to free memory
+            chartBitmap.recycle()
+
+            // Save to file
+            saveBitmapToFile(bitmapWithLabels, fileName)
+
+            // Recycle final bitmap after saving
+            bitmapWithLabels.recycle()
+
+        } finally {
+            // Restore original settings
+            chart.xAxis.textColor = originalXAxisTextColor
+            chart.axisLeft.textColor = originalYAxisTextColor
+            chart.description.isEnabled = originalDescriptionEnabled
+            chart.invalidate()
+        }
+    }
+
+    private fun addAxisLabelsToBitmap(chartBitmap: Bitmap, xAxisLabel: String, yAxisLabel: String): Bitmap {
+        // Calculate new bitmap size with space for axis labels
+        val xLabelHeight = 60 // Space for X-axis label at bottom
+        val yLabelWidth = 60  // Space for Y-axis label on left
+
+        val newWidth = chartBitmap.width + yLabelWidth
+        val newHeight = chartBitmap.height + xLabelHeight
+
+        // Create new bitmap with extra space
+        val newBitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(newBitmap)
+
+        // Fill with white background
+        canvas.drawColor(Color.WHITE)
+
+        // Draw original chart bitmap (offset to make room for Y-axis label)
+        canvas.drawBitmap(chartBitmap, yLabelWidth.toFloat(), 0f, null)
+
+        // Prepare paint for text
+        val textPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 36f
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+        }
+
+        // Draw X-axis label (bottom center)
+        val xLabelX = newWidth / 2f
+        val xLabelY = chartBitmap.height + 45f
+        canvas.drawText(xAxisLabel, xLabelX, xLabelY, textPaint)
+
+        // Draw Y-axis label (left side, rotated 90 degrees counter-clockwise)
+        canvas.save()
+        canvas.rotate(-90f, yLabelWidth / 2f, newHeight / 2f)
+        canvas.drawText(yAxisLabel, yLabelWidth / 2f, newHeight / 2f + 12f, textPaint)
+        canvas.restore()
+
+        return newBitmap
+    }
+
+    private fun saveBitmapToFile(bitmap: Bitmap, fileName: String) {
+        try {
+            val finalFileName = if (fileName.endsWith(".png")) fileName else "$fileName.png"
+
+            // Save to configured path (same as tracking data)
+            val savePath = configManager.getSavePath()
+            if (savePath != null) {
+                // Use SAF URI
+                val uri = Uri.parse(savePath)
+                val dir = DocumentFile.fromTreeUri(this, uri)
+                val docFile = dir?.createFile("image/png", finalFileName)
+                docFile?.uri?.let { fileUri ->
+                    contentResolver.openOutputStream(fileUri)?.use { outputStream ->
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                    }
+                    Toast.makeText(this, "グラフを保存しました: $finalFileName", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                // Default path if not configured
+                val file = File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), finalFileName)
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                }
+                Toast.makeText(this, "グラフを保存しました: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "保存に失敗しました: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }

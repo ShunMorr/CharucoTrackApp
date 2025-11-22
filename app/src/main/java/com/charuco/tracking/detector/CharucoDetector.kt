@@ -62,9 +62,11 @@ class CharucoDetector(
         // Create CharucoDetector
         charucoDetector = OpenCVCharucoDetector(board, CharucoParameters(), detectorParams)
 
-        // Camera calibration parameters
-        cameraMatrix = calibrationData.cameraMatrix
-        distCoeffs = calibrationData.distCoeffs
+        // Camera calibration parameters - create copies to own the memory
+        cameraMatrix = Mat()
+        calibrationData.cameraMatrix.copyTo(cameraMatrix)
+        distCoeffs = Mat()
+        calibrationData.distCoeffs.copyTo(distCoeffs)
     }
 
     /**
@@ -286,5 +288,14 @@ class CharucoDetector(
         val boardImage = Mat()
         board.generateImage(Size(imageSize.toDouble(), imageSize.toDouble()), boardImage, 10, 1)
         return boardImage
+    }
+
+    /**
+     * Release OpenCV Mat objects to prevent memory leaks
+     * Call this when the detector is no longer needed
+     */
+    fun release() {
+        cameraMatrix.release()
+        distCoeffs.release()
     }
 }
