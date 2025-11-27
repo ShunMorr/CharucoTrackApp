@@ -71,8 +71,9 @@ class CharucoDetector(
 
     /**
      * Detect ChArUco board and estimate pose
+     * @param applyTransform If true, applies the configured transformation matrix to get target object pose
      */
-    fun detectAndEstimatePose(frame: Mat): DetectionResult? {
+    fun detectAndEstimatePose(frame: Mat, applyTransform: Boolean = false): DetectionResult? {
         if (frame.empty()) return null
 
         val gray = Mat()
@@ -142,11 +143,22 @@ class CharucoDetector(
             return null
         }
 
-        // Convert to PoseData
-        val poseData = convertToPoseData(rvec, tvec, charucoCorners, charucoIds)
+        // Convert to PoseData (board pose)
+        val boardPose = convertToPoseData(rvec, tvec, charucoCorners, charucoIds)
+
+        // Apply transformation if requested and enabled
+        val transformedPose = if (applyTransform && configManager.isTransformEnabled()) {
+            val transformMatrix = configManager.getTransformMatrix()
+            val transformed = boardPose.transform(transformMatrix)
+            transformMatrix.release()
+            transformed
+        } else {
+            null
+        }
 
         return DetectionResult(
-            poseData = poseData,
+            boardPose = boardPose,
+            targetPose = transformedPose,
             rvec = rvec,
             tvec = tvec,
             charucoCorners = charucoCorners,
@@ -266,13 +278,18 @@ class CharucoDetector(
      * Result of ChArUco detection
      */
     data class DetectionResult(
-        val poseData: PoseData,
+        val boardPose: PoseData,           // Pose of the ChArUco board
+        val targetPose: PoseData?,         // Pose of the target object (if transform applied)
         val rvec: Mat,
         val tvec: Mat,
         val charucoCorners: Mat,
         val charucoIds: Mat,
         val numCorners: Int
     ) {
+        // For backward compatibility
+        val poseData: PoseData
+            get() = targetPose ?: boardPose
+
         fun release() {
             rvec.release()
             tvec.release()

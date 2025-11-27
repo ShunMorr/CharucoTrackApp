@@ -139,6 +139,131 @@
             android:text="フォルダを選択"
             android:layout_marginBottom="24dp" />
 
+        <!-- Transform Configuration Section -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="対象物変換設定"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ボードから対象物への相対位置・姿勢を設定"
+            android:textSize="12sp"
+            android:layout_marginBottom="16dp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchTransformEnabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="変換機能を有効にする"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:id="@+id/layoutTransformParams"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Translation Offset -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="位置オフセット (メートル)"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="X軸オフセット" />
+
+            <EditText
+                android:id="@+id/etTransformX"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="0.0"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Y軸オフセット" />
+
+            <EditText
+                android:id="@+id/etTransformY"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="0.0"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Z軸オフセット" />
+
+            <EditText
+                android:id="@+id/etTransformZ"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="0.0"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Rotation Offset -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="回転オフセット (度)"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Roll (X軸回転)" />
+
+            <EditText
+                android:id="@+id/etTransformRoll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="0.0"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pitch (Y軸回転)" />
+
+            <EditText
+                android:id="@+id/etTransformPitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="0.0"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Yaw (Z軸回転)" />
+
+            <EditText
+                android:id="@+id/etTransformYaw"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal|numberSigned"
+                android:hint="0.0"
+                android:layout_marginBottom="16dp" />
+
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"

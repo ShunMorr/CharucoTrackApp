@@ -239,7 +239,7 @@ class TrackingActivity : AppCompatActivity() {
                         val mat = Mat()
                         Utils.bitmapToMat(bitmap, mat)
 
-                        val detectionResult = detector.detectAndEstimatePose(mat)
+                        val detectionResult = detector.detectAndEstimatePose(mat, applyTransform = true)
 
                         if (detectionResult != null) {
                             // Add pose to tracker if tracking
