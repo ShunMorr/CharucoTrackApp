@@ -112,6 +112,10 @@ dependencies {
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
+    // NanoHTTPD for HTTP server
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

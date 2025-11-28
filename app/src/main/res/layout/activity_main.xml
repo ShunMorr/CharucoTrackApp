@@ -95,6 +95,46 @@
             android:textSize="16sp" />
     </com.google.android.material.card.MaterialCardView>
 
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardElevation="4dp"
+        app:cardCornerRadius="8dp"
+        app:cardBackgroundColor="#E3F2FD">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="リモートカメラサーバー"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnToggleServer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="サーバー開始"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvServerUrl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="14sp"
+                android:textColor="#1976D2"
+                android:visibility="gone" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <TextView
         android:id="@+id/tvCalibrationStatus"
         android:layout_width="wrap_content"
