@@ -11,7 +11,9 @@ import android.os.Binder
 import android.os.Build
 import android.os.CountDownTimer
 import android.os.Environment
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.util.Size
 import androidx.camera.core.*
@@ -44,6 +46,9 @@ class RemoteMeasurementService : LifecycleService(), MeasurementController {
     private var measurer: SpotMeasurer? = null
     private lateinit var configManager: ConfigManager
     private lateinit var dataExporter: DataExporter
+
+    // Handler for running tasks on main thread
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var imageAnalysis: ImageAnalysis? = null
     private var camera: Camera? = null
@@ -205,16 +210,18 @@ class RemoteMeasurementService : LifecycleService(), MeasurementController {
         currentFileName = fileName
 
         if (delay > 0) {
-            countDownTimer?.cancel()
-            countDownTimer = object : CountDownTimer(delay * 1000L, 1000) {
-                override fun onTick(millisUntilFinished: Long) {
-                    val sec = (millisUntilFinished / 1000) + 1
-                    updateNotification("Measurement starting in ${sec}s", "File: $fileName")
-                }
-                override fun onFinish() {
-                    doStartMeasurement()
-                }
-            }.start()
+            mainHandler.post {
+                countDownTimer?.cancel()
+                countDownTimer = object : CountDownTimer(delay * 1000L, 1000) {
+                    override fun onTick(millisUntilFinished: Long) {
+                        val sec = (millisUntilFinished / 1000) + 1
+                        updateNotification("Measurement starting in ${sec}s", "File: $fileName")
+                    }
+                    override fun onFinish() {
+                        doStartMeasurement()
+                    }
+                }.start()
+            }
         } else {
             doStartMeasurement()
         }
@@ -222,15 +229,21 @@ class RemoteMeasurementService : LifecycleService(), MeasurementController {
 
     private fun doStartMeasurement() {
         measurer?.start()
-        updateNotification("Measuring...", "File: $currentFileName")
+        mainHandler.post {
+            updateNotification("Measuring...", "File: $currentFileName")
+        }
         Log.d(TAG, "Measurement started")
     }
 
     override fun stopMeasurement() {
-        countDownTimer?.cancel()
+        mainHandler.post {
+            countDownTimer?.cancel()
+        }
         measurer?.stop()
         currentFileName = null
-        updateNotification("Server Running", "Ready for measurements")
+        mainHandler.post {
+            updateNotification("Server Running", "Ready for measurements")
+        }
         Log.d(TAG, "Measurement stopped")
     }
 
@@ -314,7 +327,9 @@ class RemoteMeasurementService : LifecycleService(), MeasurementController {
             "numSamples" to measurement.numSamples
         )
 
-        updateNotification("Measurement Complete", "Saved: $fileName.yaml")
+        mainHandler.post {
+            updateNotification("Measurement Complete", "Saved: $fileName.yaml")
+        }
         currentFileName = null
     }
 
@@ -393,7 +408,9 @@ class RemoteMeasurementService : LifecycleService(), MeasurementController {
     }
 
     private fun cleanup() {
-        countDownTimer?.cancel()
+        mainHandler.post {
+            countDownTimer?.cancel()
+        }
         cameraExecutor.shutdown()
         detector?.release()
         detector = null

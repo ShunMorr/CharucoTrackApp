@@ -8,7 +8,9 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -27,8 +29,19 @@ class MainActivity : AppCompatActivity() {
     private var remoteMeasurementService: RemoteMeasurementService? = null
     private var isServiceBound = false
 
+    // Handler for periodic status updates
+    private val statusUpdateHandler = Handler(Looper.getMainLooper())
+    private val updateInterval = 1000L // Update every 1 second
+
     companion object {
         private const val CAMERA_PERMISSION_REQUEST_CODE = 100
+    }
+
+    private val statusUpdateRunnable = object : Runnable {
+        override fun run() {
+            updateMeasurementStatus()
+            statusUpdateHandler.postDelayed(this, updateInterval)
+        }
     }
 
     private val serviceConnection = object : ServiceConnection {
@@ -37,12 +50,14 @@ class MainActivity : AppCompatActivity() {
             remoteMeasurementService = binder.getService()
             isServiceBound = true
             updateServerUI()
+            startStatusUpdates()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             remoteMeasurementService = null
             isServiceBound = false
             updateServerUI()
+            stopStatusUpdates()
         }
     }
 
@@ -131,6 +146,8 @@ class MainActivity : AppCompatActivity() {
             action = RemoteMeasurementService.ACTION_STOP_SERVER
         }
 
+        stopStatusUpdates()
+
         if (isServiceBound) {
             unbindService(serviceConnection)
             isServiceBound = false
@@ -152,7 +169,79 @@ class MainActivity : AppCompatActivity() {
         } else {
             binding.btnToggleServer.text = "サーバー開始"
             binding.tvServerUrl.visibility = View.GONE
+
+            // Hide measurement status when server is stopped
+            try {
+                binding.layoutMeasurementStatus.visibility = View.GONE
+            } catch (e: Exception) {
+                // UI element not yet added to layout
+            }
         }
+    }
+
+    private fun updateMeasurementStatus() {
+        try {
+            val service = remoteMeasurementService
+            if (service == null || !service.isServerRunning()) {
+                binding.layoutMeasurementStatus.visibility = View.GONE
+                return
+            }
+
+            val status = service.getStatus()
+            val isMeasuring = status["isMeasuring"] as? Boolean ?: false
+
+            if (isMeasuring) {
+                binding.layoutMeasurementStatus.visibility = View.VISIBLE
+
+                val currentFileName = status["currentFileName"] as? String ?: ""
+                val numSamples = status["numSamples"] as? Int ?: 0
+                val targetSamples = status["targetSamples"] as? Int ?: 30
+                val progress = status["progress"] as? Double ?: 0.0
+
+                binding.tvMeasurementStatus.text = "測定中..."
+                binding.tvCurrentFile.text = "ファイル: $currentFileName"
+                binding.tvCurrentFile.visibility = View.VISIBLE
+
+                binding.progressMeasurement.progress = progress.toInt()
+                binding.progressMeasurement.visibility = View.VISIBLE
+
+                binding.tvProgress.text = "$numSamples / $targetSamples サンプル (${progress.toInt()}%)"
+                binding.tvProgress.visibility = View.VISIBLE
+            } else {
+                val lastResult = status["lastResult"] as? Map<*, *>
+                if (lastResult != null) {
+                    binding.layoutMeasurementStatus.visibility = View.VISIBLE
+                    binding.tvMeasurementStatus.text = "測定完了"
+
+                    val fileName = lastResult["fileName"] as? String ?: ""
+                    binding.tvCurrentFile.text = "ファイル: $fileName"
+                    binding.tvCurrentFile.visibility = View.VISIBLE
+
+                    binding.progressMeasurement.visibility = View.GONE
+
+                    val numSamples = lastResult["numSamples"] as? Int ?: 0
+                    binding.tvProgress.text = "$numSamples サンプル完了"
+                    binding.tvProgress.visibility = View.VISIBLE
+                } else {
+                    binding.layoutMeasurementStatus.visibility = View.VISIBLE
+                    binding.tvMeasurementStatus.text = "待機中"
+                    binding.tvCurrentFile.visibility = View.GONE
+                    binding.progressMeasurement.visibility = View.GONE
+                    binding.tvProgress.visibility = View.GONE
+                }
+            }
+        } catch (e: Exception) {
+            // UI elements not yet added to layout, silently ignore
+        }
+    }
+
+    private fun startStatusUpdates() {
+        stopStatusUpdates()
+        statusUpdateHandler.post(statusUpdateRunnable)
+    }
+
+    private fun stopStatusUpdates() {
+        statusUpdateHandler.removeCallbacks(statusUpdateRunnable)
     }
 
     private fun updateCalibrationStatus() {
@@ -173,10 +262,19 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         updateCalibrationStatus()
         updateServerUI()
+        if (isServiceBound) {
+            startStatusUpdates()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopStatusUpdates()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        stopStatusUpdates()
         if (isServiceBound) {
             unbindService(serviceConnection)
             isServiceBound = false
