@@ -89,6 +89,7 @@ dependencies {
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 
     // CameraX
     val cameraxVersion = "1.3.1"
@@ -111,6 +112,10 @@ dependencies {
 
     // Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
+    // NanoHTTPD for HTTP server
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
